@@ -8,6 +8,9 @@ import {
 } from "../../../lib/github.js";
 import { summarizeCommit } from "../../../lib/gemini.js";
 
+// ── Helper — wait ms milliseconds ─────────────────────────────────────────────
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
 export async function POST(request) {
   try {
     const { repoUrl, token } = await request.json();
@@ -50,7 +53,8 @@ export async function POST(request) {
     }
 
     // ── 4. Fetch diffs + format commits ──────────────────────────────────────
-    const DIFF_LIMIT = 50;
+    // Only fetch diffs for first 30 commits to avoid GitHub rate limits
+    const DIFF_LIMIT = 30;
 
     const formattedCommits = await Promise.all(
       rawCommits.slice(0, DIFF_LIMIT).map(async (raw) => {
@@ -65,27 +69,38 @@ export async function POST(request) {
 
     const allCommits = [...formattedCommits, ...remainingCommits];
 
-    // ── 5. AI Summarize first 50 commits ─────────────────────────────────────
-    const SUMMARIZE_LIMIT = 20;
+    // ── 5. AI Summarize — ONE AT A TIME with delay ────────────────────────────
+    // Gemini free tier = 15 requests/minute
+    // We summarize sequentially with 2s gap = safe under the limit
+    const SUMMARIZE_LIMIT = 10; // only first 10 on initial load
+    const DELAY_BETWEEN   = 2000; // 2 seconds between each call
 
-    const summarizedCommits = await Promise.all(
-      allCommits.slice(0, SUMMARIZE_LIMIT).map(async (commit) => {
-        const summary = await summarizeCommit(commit);
-        return { ...commit, ai_summary: summary };
-      })
-    );
+    const summarizedCommits = [];
 
+    for (let i = 0; i < Math.min(SUMMARIZE_LIMIT, allCommits.length); i++) {
+      const commit  = allCommits[i];
+      const summary = await summarizeCommit(commit);
+      summarizedCommits.push({ ...commit, ai_summary: summary });
+
+      // Wait between calls — skip delay on last item
+      if (i < SUMMARIZE_LIMIT - 1) {
+        await wait(DELAY_BETWEEN);
+      }
+    }
+
+    // Remaining commits have no summary yet — that's fine
+    // chatbot still uses their commit messages as context
     const unsummarizedCommits = allCommits.slice(SUMMARIZE_LIMIT);
-
-    const finalCommits = [...summarizedCommits, ...unsummarizedCommits];
+    const finalCommits        = [...summarizedCommits, ...unsummarizedCommits];
 
     // ── 6. Return everything ──────────────────────────────────────────────────
     return NextResponse.json({
       repoMeta,
-      commits: finalCommits,
-      total: finalCommits.length,
-      summarized: SUMMARIZE_LIMIT,
+      commits:    finalCommits,
+      total:      finalCommits.length,
+      summarized: summarizedCommits.length,
     });
+
   } catch (error) {
     console.error("Analyze route error:", error);
     return NextResponse.json(

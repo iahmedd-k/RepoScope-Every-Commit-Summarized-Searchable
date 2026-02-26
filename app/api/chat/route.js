@@ -25,7 +25,7 @@ export async function POST(request) {
   } catch (error) {
     console.error("Chat route error:", error);
     return NextResponse.json(
-      { error: "Failed to get answer. Please try again." },
+      { error: error?.message || "Failed to get answer. Please try again." },
       { status: 500 }
     );
   }

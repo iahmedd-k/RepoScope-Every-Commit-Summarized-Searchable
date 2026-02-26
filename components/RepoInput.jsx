@@ -56,20 +56,6 @@ export default function RepoInput() {
     }
   };
 
-  const searchParams = useSearchParams();
-  const [autoAnalyzed, setAutoAnalyzed] = useState(false);
-
-  useEffect(() => {
-    const repoParam = searchParams?.get?.("repo");
-    if (repoParam && !autoAnalyzed) {
-      setUrl(repoParam);
-      setAutoAnalyzed(true);
-      // run analyze automatically for repo query param
-      handleAnalyze();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
-
   return (
     <div className="bg-[#0e1117] border border-[#1e2435] rounded-2xl p-6 mb-6">
       {/* Header */}
@@ -172,7 +158,7 @@ export default function RepoInput() {
       {/* Buttons */}
       <div className="flex gap-2">
         <button
-          onClick={handleAnalyze}
+          onClick={() => handleAnalyze()}
           disabled={isAnalyzing || !url.trim()}
           className="flex items-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-5 py-2.5 rounded-xl transition-colors"
         >

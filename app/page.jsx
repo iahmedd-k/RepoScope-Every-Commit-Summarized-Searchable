@@ -121,7 +121,7 @@ export default function LandingPage() {
             className="flex-1 bg-[#0e1117] border border-[#1e2435] rounded-xl px-5 py-3.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-violet-500/60 transition-colors font-mono"
           />
           <button
-            onClick={handleAnalyze}
+            onClick={() => handleAnalyze()}
             disabled={!repoUrl.trim()}
             className="bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-medium px-6 py-3.5 rounded-xl transition-colors whitespace-nowrap"
           >
