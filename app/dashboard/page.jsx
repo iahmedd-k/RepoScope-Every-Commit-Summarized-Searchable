@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useUser, UserButton, SignInButton } from "@clerk/nextjs";
 import { useRepo } from "../../context/Repocontext";
 import { saveRecentRepo, getRecentRepos } from "../../lib/supbase.js";
@@ -68,6 +68,8 @@ export default function DashboardPage() {
   const { user, isSignedIn } = useUser();
   const searchParams = useSearchParams();
 
+  const router = useRouter();
+
   const {
     repoMeta, setRepoMeta,
     commits,  setCommits,
@@ -95,10 +97,20 @@ export default function DashboardPage() {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  // Pre-fill URL from landing page param
+  // Pre-fill URL from landing page param and automatically analyze any
+  // time the `repo` query string changes.  (We no longer need a one‑time
+  // flag; clicking a sidebar item will update the search params and trigger
+  // this effect again.)
   useEffect(() => {
-    const repoUrl = searchParams.get("repo");
-    if (repoUrl) setUrl(decodeURIComponent(repoUrl));
+    const repoParam = searchParams.get("repo");
+    if (repoParam) {
+      const decoded = decodeURIComponent(repoParam);
+      // only run if the input doesn't already match, otherwise we’ll loop
+      if (decoded !== url) {
+        setUrl(decoded);
+        handleAnalyze(decoded);
+      }
+    }
   }, [searchParams]);
 
   // Save repo to Supabase when loaded
@@ -114,7 +126,13 @@ export default function DashboardPage() {
     const targetUrl = (overrideUrl ?? url) || "";
     if (!targetUrl.trim()) return;
     // keep the input in sync when override provided
-    if (overrideUrl) setUrl(overrideUrl);
+    if (overrideUrl) {
+      setUrl(overrideUrl);
+    } else {
+      // update query string so the current repo is shareable
+      router.replace(`/dashboard?repo=${encodeURIComponent(targetUrl)}`);
+    }
+
     clearRepo();
     setIsAnalyzing(true);
     setAnalyzeProgress("Connecting to GitHub...");
@@ -138,17 +156,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Auto-run analysis when `?repo=` is present in the URL (once)
-  const autoAnalyzedRef = useRef(false);
-  useEffect(() => {
-    const repoParam = searchParams.get("repo");
-    if (repoParam && !autoAnalyzedRef.current) {
-      const decoded = decodeURIComponent(repoParam);
-      autoAnalyzedRef.current = true;
-      handleAnalyze(decoded);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams]);
 
   // ── Chat handler ───────────────────────────────────────────────────────────
   const handleChat = async () => {

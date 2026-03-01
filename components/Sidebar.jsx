@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { useRepo } from "../context/Repocontext";
 import { getRecentRepos, deleteRecentRepo } from "../lib/supbase.js";
 
 export default function Sidebar() {
   const { user, isSignedIn } = useUser();
+  const router = useRouter();
+
   const {
     recentRepos,
     setRecentRepos,
@@ -111,6 +114,9 @@ export default function Sidebar() {
                   ? "bg-white/8 text-slate-100"
                   : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
               }`}
+              onClick={() => {
+                router.push(`/dashboard?repo=${encodeURIComponent(repo.repo_url)}`);
+              }}
             >
               {/* Language color dot */}
               <span className="w-2 h-2 rounded-full bg-violet-400 flex-shrink-0" />

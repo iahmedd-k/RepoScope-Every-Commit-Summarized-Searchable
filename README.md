@@ -29,6 +29,8 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+> **AI model configuration**: This project uses Groq's API via `lib/gemini.js`. Set `GROQ_API_KEY` in `.env.local` and you can optionally override the model with `GROQ_MODEL` (default: `mixtral-8x7b`). The previous `mixtral-8x7b-32768` model was decommissioned; update if you see 400 errors.
+
 ## Deploy on Vercel
 
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
