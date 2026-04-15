@@ -11,7 +11,9 @@ export default function LandingPage() {
 
   const handleAnalyze = () => {
     if (!repoUrl.trim()) return;
-    router.push(`/dashboard?repo=${encodeURIComponent(repoUrl)}`);
+    // stash the repo URL in sessionStorage so dashboard can pick it up
+    sessionStorage.setItem("pendingRepo", repoUrl);
+    router.push("/dashboard");
   };
 
   const FEATURES = [

@@ -1,14 +1,15 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { useRepo } from "../context/Repocontext";
-import { getRecentRepos, deleteRecentRepo } from "../lib/supbase.js";
+import { getRecentRepos, deleteRecentRepo } from "../lib/supabase.js";
 
 export default function Sidebar() {
   const { user, isSignedIn } = useUser();
   const router = useRouter();
+  const pathname = usePathname();
 
   const {
     recentRepos,
@@ -36,6 +37,7 @@ export default function Sidebar() {
   const NAV_ITEMS = [
     {
       label: "Dashboard",
+      href: "/dashboard",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4">
           <rect x="3" y="3" width="7" height="7" rx="1.5" />
@@ -44,17 +46,16 @@ export default function Sidebar() {
           <rect x="14" y="14" width="7" height="7" rx="1.5" />
         </svg>
       ),
-      active: true,
     },
     {
       label: "Billing",
+      href: "/dashboard/billing",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-4 h-4">
           <rect x="2" y="5" width="20" height="14" rx="2" />
           <path d="M2 10h20" strokeLinecap="round" />
         </svg>
       ),
-      active: false,
     },
   ];
 
@@ -76,21 +77,28 @@ export default function Sidebar() {
         <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-widest px-2 mb-1.5">
           Application
         </p>
-        {NAV_ITEMS.map((item) => (
-          <button
-            key={item.label}
-            className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors mb-0.5 ${
-              item.active
-                ? "bg-violet-600/20 text-violet-300"
-                : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
-            }`}
-          >
-            <span className={item.active ? "text-violet-400" : "text-slate-500"}>
-              {item.icon}
-            </span>
-            {item.label}
-          </button>
-        ))}
+        {NAV_ITEMS.map((item) => {
+          const isActive = pathname === item.href;
+          return (
+            <button
+              key={item.label}
+              onClick={() => {
+                // preserve existing behaviour for nav items
+                router.push(item.href);
+              }}
+              className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] font-medium transition-colors mb-0.5 ${
+                isActive
+                  ? "bg-violet-600/20 text-violet-300"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
+              }`}
+            >
+              <span className={isActive ? "text-violet-400" : "text-slate-500"}>
+                {item.icon}
+              </span>
+              {item.label}
+            </button>
+          );
+        })}
       </div>
 
       <div className="mx-4 border-t border-[#1a1f30] my-2" />
@@ -115,7 +123,8 @@ export default function Sidebar() {
                   : "text-slate-400 hover:bg-white/5 hover:text-slate-200"
               }`}
               onClick={() => {
-                router.push(`/dashboard?repo=${encodeURIComponent(repo.repo_url)}`);
+                sessionStorage.setItem("pendingRepo", repo.repo_url);
+                router.push("/dashboard");
               }}
             >
               {/* Language color dot */}

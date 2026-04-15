@@ -29,6 +29,30 @@ To learn more about Next.js, take a look at the following resources:
 
 You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
 
+
+## Environment variables
+
+Several features require secrets stored in `.env.local` (not committed to Git). For example:
+
+```bash
+# Supabase (public keys ok for client-side access)
+NEXT_PUBLIC_SUPABASE_URL=...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=...
+
+# Stripe (server only)
+#   * **STRIPE_SECRET_KEY** must be set to your **sk_** key
+#     (do _not_ use a publishable key or any NEXT_PUBLIC_ prefix).
+#   *Price IDs are public and are stored as NEXT_PUBLIC_STRIPE_* variables.
+STRIPE_SECRET_KEY=sk_test_...
+NEXT_PUBLIC_STRIPE_PRO_MONTHLY_PRICE_ID=...
+NEXT_PUBLIC_STRIPE_PRO_YEARLY_PRICE_ID=...
+NEXT_PUBLIC_STRIPE_TEAM_MONTHLY_PRICE_ID=...
+NEXT_PUBLIC_STRIPE_TEAM_YEARLY_PRICE_ID=...
+
+# base URL used for success/cancel redirects (must include scheme, e.g. http://localhost:3000)
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
 > **AI model configuration**: This project uses Groq's API via `lib/gemini.js`. Set `GROQ_API_KEY` in `.env.local` and you can optionally override the model with `GROQ_MODEL` (default: `mixtral-8x7b`). The previous `mixtral-8x7b-32768` model was decommissioned; update if you see 400 errors.
 
 ## Deploy on Vercel

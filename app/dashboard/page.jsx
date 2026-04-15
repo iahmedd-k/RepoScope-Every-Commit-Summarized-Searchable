@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useEffect, useState, useRef, useCallback } from "react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useUser, UserButton, SignInButton } from "@clerk/nextjs";
 import { useRepo } from "../../context/Repocontext";
-import { saveRecentRepo, getRecentRepos } from "../../lib/supbase.js";
+import { saveRecentRepo, getRecentRepos } from "../../lib/supabase.js";
 import Sidebar from "../../components/Sidebar";
 import CommitCard from "../../components/CommitCard";
 
@@ -66,8 +67,11 @@ function FormatMessage({ text }) {
 // ── MAIN PAGE ─────────────────────────────────────────────────────────────────
 export default function DashboardPage() {
   const { user, isSignedIn } = useUser();
-  const searchParams = useSearchParams();
+  // we no longer read query params; repo URLs are passed via
+  // sessionStorage to keep them out of the browser history
+  // const searchParams = useSearchParams();
 
+  // router only needed for navigation when landing from home/sidebar
   const router = useRouter();
 
   const {
@@ -97,41 +101,15 @@ export default function DashboardPage() {
     chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  // Pre-fill URL from landing page param and automatically analyze any
-  // time the `repo` query string changes.  (We no longer need a one‑time
-  // flag; clicking a sidebar item will update the search params and trigger
-  // this effect again.)
-  useEffect(() => {
-    const repoParam = searchParams.get("repo");
-    if (repoParam) {
-      const decoded = decodeURIComponent(repoParam);
-      // only run if the input doesn't already match, otherwise we’ll loop
-      if (decoded !== url) {
-        setUrl(decoded);
-        handleAnalyze(decoded);
-      }
-    }
-  }, [searchParams]);
-
-  // Save repo to Supabase when loaded
-  useEffect(() => {
-    if (!repoMeta || !isSignedIn || !user) return;
-    saveRecentRepo(user.id, repoMeta).then(() => {
-      getRecentRepos(user.id).then(setRecentRepos);
-    });
-  }, [repoMeta, isSignedIn, user]);
-
   // ── Analyze handler ────────────────────────────────────────────────────────
-  const handleAnalyze = async (overrideUrl) => {
+  const handleAnalyze = useCallback(async (overrideUrl) => {
     const targetUrl = (overrideUrl ?? url) || "";
     if (!targetUrl.trim()) return;
     // keep the input in sync when override provided
     if (overrideUrl) {
       setUrl(overrideUrl);
-    } else {
-      // update query string so the current repo is shareable
-      router.replace(`/dashboard?repo=${encodeURIComponent(targetUrl)}`);
     }
+    // no URL navigation; we deliberately avoid putting repo in the query
 
     clearRepo();
     setIsAnalyzing(true);
@@ -154,7 +132,27 @@ export default function DashboardPage() {
     } finally {
       setIsAnalyzing(false);
     }
-  };
+  }, [url, clearRepo, setAnalyzeProgress, setCommits, setError, setRepoMeta, setIsAnalyzing, token]);
+
+  // read pending repo from sessionStorage when the dashboard mounts
+  useEffect(() => {
+    const pending = sessionStorage.getItem("pendingRepo");
+    if (pending && pending !== url) {
+      setUrl(pending);
+      handleAnalyze(pending);
+      sessionStorage.removeItem("pendingRepo");
+    }
+    // we intentionally omit dependencies so this only runs once
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Save repo to Supabase when loaded
+  useEffect(() => {
+    if (!repoMeta || !isSignedIn || !user) return;
+    saveRecentRepo(user.id, repoMeta).then(() => {
+      getRecentRepos(user.id).then(setRecentRepos);
+    });
+  }, [repoMeta, isSignedIn, user, setRecentRepos]);
 
 
   // ── Chat handler ───────────────────────────────────────────────────────────
@@ -191,7 +189,7 @@ export default function DashboardPage() {
       <div className="flex-1 flex flex-col overflow-hidden">
 
         {/* ── Header ────────────────────────────────────────────────────── */}
-        <header className="h-14 border-b border-[#1a1f30] flex items-center px-6 gap-4 flex-shrink-0 bg-[#07080c]">
+        <header className="h-14 border-b border-[#1a1f30] flex items-center px-6 gap-4 shrink-0 bg-[#07080c]">
           <h1 className="text-sm font-semibold text-slate-300 flex-1">Dashboard</h1>
           {commits.length > 0 && (
             <div className="flex items-center gap-4 text-xs text-slate-500">
@@ -229,7 +227,7 @@ export default function DashboardPage() {
 
               {/* Header */}
               <div className="flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-violet-600/20 border border-violet-500/20 flex items-center justify-center text-violet-400 flex-shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-violet-600/20 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0">
                   <GithubIcon />
                 </div>
                 <div>
@@ -313,10 +311,18 @@ export default function DashboardPage() {
               {repoMeta && !isAnalyzing && (
                 <div className="p-3 bg-[#13151e] border border-[#1e2435] rounded-xl">
                   <div className="flex items-center gap-2 mb-1.5">
-                    {repoMeta.avatar && <img src={repoMeta.avatar} alt="" className="w-5 h-5 rounded-full" />}
+                    {repoMeta.avatar && (
+                      <Image
+                        src={repoMeta.avatar}
+                        alt=""
+                        width={20}
+                        height={20}
+                        className="rounded-full"
+                      />
+                    )}
                     <span className="text-xs font-mono text-slate-200 font-semibold truncate">{repoMeta.full_name}</span>
                     {repoMeta.isPrivate && (
-                      <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded ring-1 ring-amber-500/20 flex-shrink-0">Private</span>
+                      <span className="text-[10px] text-amber-400 bg-amber-500/10 px-1.5 py-0.5 rounded ring-1 ring-amber-500/20 shrink-0">Private</span>
                     )}
                   </div>
                   {repoMeta.description && (
@@ -349,8 +355,8 @@ export default function DashboardPage() {
             <div className="bg-[#0e1117] border border-[#1e2435] rounded-2xl flex flex-col overflow-hidden" style={{ minHeight: "400px" }}>
 
               {/* Chat header */}
-              <div className="px-5 py-4 border-b border-[#1e2435] flex items-center gap-3 flex-shrink-0">
-                <div className="w-9 h-9 rounded-xl bg-emerald-600/20 border border-emerald-500/20 flex items-center justify-center text-emerald-400 flex-shrink-0">
+              <div className="px-5 py-4 border-b border-[#1e2435] flex items-center gap-3 shrink-0">
+                <div className="w-9 h-9 rounded-xl bg-emerald-600/20 border border-emerald-500/20 flex items-center justify-center text-emerald-400 shrink-0">
                   <BotIcon />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -361,7 +367,7 @@ export default function DashboardPage() {
                       : "Analyze a repo first to enable chat"}
                   </p>
                 </div>
-                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${commits.length > 0 && isSignedIn ? "bg-emerald-400" : "bg-slate-700"}`} />
+                <div className={`w-2 h-2 rounded-full shrink-0 ${commits.length > 0 && isSignedIn ? "bg-emerald-400" : "bg-slate-700"}`} />
               </div>
 
               {/* Not signed in */}
@@ -377,7 +383,7 @@ export default function DashboardPage() {
                       "What changed in the API last week?",
                       "Which files were modified most?",
                     ].map((ex) => (
-                      <p key={ex} className="text-xs text-slate-500 italic">"{ex}"</p>
+                      <p key={ex} className="text-xs text-slate-500 italic">&quot;{ex}&quot;</p>
                     ))}
                   </div>
                   <SignInButton mode="modal">
@@ -406,7 +412,7 @@ export default function DashboardPage() {
                         <p className="text-xs text-slate-400 leading-relaxed">
                           Hi! I have all{" "}
                           <span className="text-violet-400 font-semibold">{commits.length} commits</span>{" "}
-                          loaded as context. Ask me where a bug was fixed, what changed in a specific file, who made recent changes — I'll give you the exact commit and a direct file link.
+                          loaded as context. Ask me where a bug was fixed, what changed in a specific file, who made recent changes — I&apos;ll give you the exact commit and a direct file link.
                         </p>
                       </div>
                     )}
@@ -439,7 +445,7 @@ export default function DashboardPage() {
                   </div>
 
                   {/* Chat input */}
-                  <div className="p-4 border-t border-[#1e2435] flex-shrink-0">
+                  <div className="p-4 border-t border-[#1e2435] shrink-0">
                     <div className="flex gap-2">
                       <input
                         type="text"
@@ -452,7 +458,7 @@ export default function DashboardPage() {
                       <button
                         onClick={handleChat}
                         disabled={!chatInput.trim() || isChatLoading}
-                        className="bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white px-3.5 py-2.5 rounded-xl transition-colors flex-shrink-0"
+                        className="bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white px-3.5 py-2.5 rounded-xl transition-colors shrink-0"
                       >
                         <SendIcon />
                       </button>

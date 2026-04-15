@@ -153,10 +153,25 @@ export default function BillingPage() {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ priceId, plan: plan.id }),
       });
-      const data = await res.json();
-      if (data.url) window.location.href = data.url;
-      else showToast(data.error || "Something went wrong.", "error");
-    } catch {
+
+      // try to parse JSON but guard against HTML error pages
+      let data;
+      try {
+        data = await res.json();
+      } catch (parseErr) {
+        // often indicates the response was HTML (Next.js error page)
+        console.error("Failed to parse checkout response as JSON", parseErr);
+        showToast("Unexpected server response. Please check your environment.", "error");
+        return;
+      }
+
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+      } else {
+        showToast(data.error || "Something went wrong.", "error");
+      }
+    } catch (err) {
+      console.error("Checkout fetch error", err);
       showToast("Network error. Please try again.", "error");
     } finally {
       setLoadingPlan(null);
